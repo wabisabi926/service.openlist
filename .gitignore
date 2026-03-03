@@ -1,0 +1,14 @@
+# Kodi plugin ignore rules
+*.zip
+.DS_Store
+Thumbs.db
+
+# Binary files (we'll include them in the repo)
+# bin/
+
+# Temporary files
+temp_unzip/
+
+# IDE files
+.vscode/
+.idea/
