@@ -11,37 +11,6 @@ ADDON = xbmcaddon.Addon()
 ADDON_ID = ADDON.getAddonInfo('id')
 ADDON_PATH = ADDON.getAddonInfo('path')
 
-def get_platform():
-    """获取当前平台信息"""
-    import platform
-    system = platform.system()
-    machine = platform.machine()
-    
-    # 检测是否为安卓平台
-    if system == 'Linux' and 'android' in platform.platform().lower():
-        # 检测安卓架构
-        if 'arm64' in machine.lower() or 'aarch64' in machine.lower():
-            return 'android_arm64'
-        elif 'arm' in machine.lower():
-            return 'android_arm'
-        elif 'x86_64' in machine.lower() or 'amd64' in machine.lower():
-            return 'android_x86_64'
-        else:
-            return 'android_unknown'
-    elif system == 'Linux':
-        # 其他Linux系统（如CoreElec）
-        if 'arm64' in machine.lower() or 'aarch64' in machine.lower():
-            return 'linux_arm64'
-        elif 'amd64' in machine.lower() or 'x86_64' in machine.lower():
-            return 'linux_amd64'
-        elif '386' in machine.lower() or 'x86' in machine.lower():
-            return 'linux_386'
-        else:
-            return 'linux_other'
-
-    else:
-        return 'other'
-
 def set_directory_permissions(path):
     """为目录及其子文件设置可执行权限"""
     if not xbmcvfs.exists(path):
@@ -65,37 +34,14 @@ def set_directory_permissions(path):
         set_directory_permissions(dir_path)
 
 def main():
-    # 获取当前平台
-    platform = get_platform()
-    xbmc.log(f"[{ADDON_ID}] 当前平台: {platform}", xbmc.LOGINFO)
-    
-    # 根据平台确定二进制文件路径
-    if platform.startswith('android'):
-        # 安卓平台
-        platform_dir = 'android'
-    elif platform.startswith('linux'):
-        # Linux平台
-        platform_dir = 'linux'
-    else:
-        # 其他平台
-        xbmcgui.Dialog().ok("错误", f"不支持的平台: {platform}")
-        return
-    
-    # 构建openlist二进制文件路径（放在bin/[platform]子文件夹中）
-    bin_dir = os.path.join(ADDON_PATH, 'bin')
-    platform_bin_dir = os.path.join(bin_dir, platform_dir)
     openlist_filename = 'openlist'
-    openlist_path = os.path.join(platform_bin_dir, openlist_filename)
+    
+    # 构建openlist二进制文件路径
+    openlist_path = os.path.join(ADDON_PATH, openlist_filename)
     openlist_path = xbmcvfs.translatePath(openlist_path)
     
-    # 确保目录存在
-    if not xbmcvfs.exists(bin_dir):
-        xbmcvfs.mkdirs(bin_dir)
-    if not xbmcvfs.exists(platform_bin_dir):
-        xbmcvfs.mkdirs(platform_bin_dir)
-    
     if not xbmcvfs.exists(openlist_path):
-        xbmcgui.Dialog().ok("错误", f"未找到openlist: {openlist_path}\n请手动添加对应平台的二进制文件到bin/{platform_dir}子文件夹中")
+        xbmcgui.Dialog().ok("错误", f"未找到{openlist_filename}: {openlist_path}")
         return
     
     # 设置二进制文件权限
@@ -117,58 +63,18 @@ def main():
     # 仅在初次启动时设置密码
     if is_first_launch:
         try:
-            # 先尝试重置登录失败次数（如果支持）
-            try:
-                reset_cmd = [
-                    openlist_path, 
-                    'admin', 'reset-failures',
-                    '--data', data_dir
-                ]
-                subprocess.run(
-                    reset_cmd,
-                    capture_output=True,
-                    text=True
-                )
-            except Exception:
-                # 如果命令不支持，忽略错误
-                pass
-            
-            # 设置默认密码为admin
-            # 尝试不同的命令格式
-            set_password_cmds = [
-                # 格式1: admin set <password>
-                [openlist_path, 'admin', 'set', 'admin', '--data', data_dir],
-                # 格式2: admin password set <password>
-                [openlist_path, 'admin', 'password', 'set', 'admin', '--data', data_dir],
-                # 格式3: admin set-password <password>
-                [openlist_path, 'admin', 'set-password', 'admin', '--data', data_dir]
+            set_password_cmd = [
+                openlist_path, 
+                'admin', 'set', 'coreelec',
+                '--data', data_dir  # 密码设置也指定数据目录
             ]
-            
-            password_set = False
-            for cmd in set_password_cmds:
-                # 记录命令以便调试
-                xbmc.log(f"[{ADDON_ID}] 尝试设置密码命令: {' '.join(cmd)}", xbmc.LOGINFO)
-                try:
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True
-                    )
-                    xbmc.log(f"[{ADDON_ID}] 命令返回码: {result.returncode}", xbmc.LOGINFO)
-                    xbmc.log(f"[{ADDON_ID}] 命令输出: {result.stdout}", xbmc.LOGINFO)
-                    xbmc.log(f"[{ADDON_ID}] 命令错误: {result.stderr}", xbmc.LOGINFO)
-                    
-                    if result.returncode == 0:
-                        xbmc.log(f"[{ADDON_ID}] 密码设置成功", xbmc.LOGINFO)
-                        password_set = True
-                        break
-                    else:
-                        xbmc.log(f"[{ADDON_ID}] 密码设置失败: {result.stderr}", xbmc.LOGERROR)
-                except Exception as e:
-                    xbmc.log(f"[{ADDON_ID}] 执行命令时出错: {str(e)}", xbmc.LOGERROR)
-            
-            if not password_set:
-                xbmcgui.Dialog().ok("密码设置失败", "尝试多种命令格式均失败，请检查OpenList版本是否兼容")
+            result = subprocess.run(
+                set_password_cmd,
+                capture_output=True,
+                text=True
+            )
+            if result.returncode != 0:
+                xbmcgui.Dialog().ok("密码设置失败", f"错误: {result.stderr}")
                 return
         except Exception as e:
             xbmcgui.Dialog().ok("错误", f"设置密码时出错: {str(e)}")
@@ -199,4 +105,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
