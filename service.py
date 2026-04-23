@@ -37,8 +37,13 @@ def main():
     openlist_filename = 'openlist'
     
     # 构建openlist二进制文件路径
-    openlist_path = os.path.join(ADDON_PATH, openlist_filename)
+    openlist_path = os.path.join(ADDON_PATH, 'bin', openlist_filename)
     openlist_path = xbmcvfs.translatePath(openlist_path)
+    
+    # 确保bin目录存在
+    bin_dir = os.path.join(ADDON_PATH, 'bin')
+    bin_dir = xbmcvfs.translatePath(bin_dir)
+    set_directory_permissions(bin_dir)
     
     if not xbmcvfs.exists(openlist_path):
         xbmcgui.Dialog().ok("错误", f"未找到{openlist_filename}: {openlist_path}")

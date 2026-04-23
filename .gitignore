@@ -3,7 +3,7 @@
 .DS_Store
 Thumbs.db
 
-# Binary files (we'll include them in the repo)
+# Binary files
 # bin/
 
 # Temporary files
